@@ -34,6 +34,9 @@ async def login(
     body: LoginRequest,
     db: AsyncSession = Depends(get_db),
 ):
+    db_url = getattr(getattr(db, "bind", None), "url", "unknown")
+    print(f"🔑 [AUTH DEBUG] Login attempt: email='{body.email}', DB='{db_url}'")
+
     stmt = (
         select(User)
         .options(
@@ -44,10 +47,21 @@ async def login(
     result = await db.execute(stmt)
     user = result.scalar_one_or_none()
 
-    if not user or not verify_password(body.password, user.hashed_password):
+    if not user:
+        print(f"❌ [AUTH DEBUG] No user found with email '{body.email}' in {db_url}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
+            detail=f"No account found with email '{body.email}'",
+        )
+
+    pw_valid = verify_password(body.password, user.hashed_password)
+    print(f"🔑 [AUTH DEBUG] Password validation for '{user.email}': {pw_valid}")
+
+    if not pw_valid:
+        print(f"❌ [AUTH DEBUG] Password mismatch for '{user.email}'")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect password for this account",
         )
 
     if not user.is_active:
