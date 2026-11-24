@@ -14,10 +14,12 @@ engine = None
 AsyncSessionLocal = None
 is_async_native = False
 
-if "postgresql" in database_url:
+if "postgresql" in database_url or "postgres" in database_url:
     # 1. Attempt standard asyncpg engine first (production / Linux / Docker / Render)
     async_db_url = database_url
-    if not async_db_url.startswith("postgresql+asyncpg://"):
+    if async_db_url.startswith("postgres://"):
+        async_db_url = async_db_url.replace("postgres://", "postgresql+asyncpg://", 1)
+    elif async_db_url.startswith("postgresql://"):
         async_db_url = async_db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
 
     connect_args = {}
