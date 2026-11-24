@@ -38,11 +38,17 @@ async def seed_admin_user() -> bool:
             print(f"[seed_admin] Admin user '{admin_email}' already exists. No action required.")
             return False
 
+        # Find existing owner/admin role if present in DB
+        from app.models.rbac import Role
+        role_res = await db.execute(select(Role).where(Role.slug.in_(["owner", "super_admin"])).limit(1))
+        owner_role = role_res.scalar_one_or_none()
+
         # Create the single Super Admin user
         admin = User(
             email=admin_email,
             hashed_password=get_password_hash(admin_password),
             full_name="Super Administrator",
+            role_id=owner_role.id if owner_role else None,
             role_slug="super_admin",
             branch_id=None,  # Zero-branch unrestricted login
             is_active=True,
