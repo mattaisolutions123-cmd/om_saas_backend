@@ -35,6 +35,14 @@ async def lifespan(app: FastAPI):
     # Startup tasks
     print(f"🚀 Starting {settings.PROJECT_NAME} v{settings.VERSION}")
     try:
+        import app.models  # Ensures all models are registered in Base.metadata
+        from app.db.session import engine, is_async_native, Base
+        if is_async_native and engine is not None:
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+        elif engine is not None:
+            Base.metadata.create_all(bind=engine)
+
         from app.scripts.seed_admin import seed_admin_user
         await seed_admin_user()
     except Exception as e:
@@ -94,6 +102,14 @@ def create_app() -> FastAPI:
     app.include_router(reports_router, prefix=settings.API_V1_STR)
     app.include_router(notices_router, prefix=settings.API_V1_STR)
     app.include_router(uploads_router, prefix=settings.API_V1_STR)
+
+    @app.get("/", tags=["Health"])
+    async def root_ping():
+        return {
+            "status": "online",
+            "service": settings.PROJECT_NAME,
+            "version": settings.VERSION,
+        }
 
     @app.get("/health", tags=["Health"])
     @app.get(f"{settings.API_V1_STR}/health", tags=["Health"])
